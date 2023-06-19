@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+    <head>
+        <title>PointerEvent: Constructor test</title>
+        <meta name="viewport" content="width=device-width">
+        <link rel="stylesheet" type="text/css" href="pointerevent_styles.css">
+        <script src="/resources/testharness.js"></script>
+        <script src="/resources/testharnessreport.js"></script>
+        <!-- Additional helper script for common checks across event types -->
+        <script type="text/javascript" src="pointerevent_support.js"></script>
+    </head>
+    <body>
+    <h1>PointerEvent: Dispatch custom event</h1>
+    <h4>Test Description: This test checks if PointerEvent constructor works properly using synthetic pointerover and pointerout events. For valid results, this test must be run without generating real (trusted) pointerover or pointerout events on the black rectangle below.</h4>
+    <div id="target0"></div>
+    <script>
+        var detected_pointertypes = {};
+        add_completion_callback(showPointerTypes);
+
+        async_test(function() {
+            var target0 = document.getElementById("target0");
+            // set values for non-default constructor
+            var init = {
+                bubbles: true,
+                cancelable: true,
+                pointerId: 42,
+                pointerType: "pen",
+                width: 3,
+                height: 5,
+                clientX: 300,
+                clientY: 500,
+                tiltX: -45,
+                tiltY: 30,
+                button: 0,
+                buttons: 1,
+                pressure: 0.4,
+                tangentialPressure: 0.5,
+                twist: 286,
+                isPrimary: true
+            };
+
+            // default constructor values (i.e., PointerEventInit)
+            var default_init = {
+                pointerId: 0,
+                width: 1,
+                height: 1,
+                pressure: 0,
+                tangentialPressure: 0,
+                tiltX: 0,
+                tiltY: 0,
+                twist: 0,
+                pointerType: "",
+                isPrimary: false
+            };
+
+            on_event(target0, "pointerover", this.step_func(function(event) {
+                detected_pointertypes[ event.pointerType ] = true;
+                for (var prop in init) {
+                    if (!init.hasOwnProperty(prop)) {
+                        continue;
+                    }
+                    test(function() {
+                        if (prop === "pressure" || prop === "tangentialPressure") {
+                            assert_approx_equals(event[prop], init[prop], 0.00000001);
+                        } else {
+                            assert_equals(event[prop], init[prop]);
+                        }
+                    }, "custom " + prop);
+                }
+            }));
+
+            on_event(target0, "pointerout", this.step_func(function(event) {
+                for (var prop in default_init) {
+                    if (!default_init.hasOwnProperty(prop)) {
+                        continue;
+                    }
+                    test(function() {
+                        assert_equals(event[prop], default_init[prop]);
+                    }, "default " + prop);
+                }
+            }));
+
+            on_event(window, "load", this.step_func_done(function() {
+                assert_not_equals(window.PointerEvent, undefined);
+
+                var pointerEventCustom = new PointerEvent("pointerover", init);
+                // A PointerEvent created with a PointerEvent constructor must have all its attributes set to the corresponding values provided to the constructor.
+                // For attributes where values are not provided to the constructor, the corresponding default values must be used.
+                // TA: 12.1
+                target0.dispatchEvent(pointerEventCustom);
+                var pointerEventDefault = new PointerEvent("pointerout");
+                target0.dispatchEvent(pointerEventDefault);
+
+                assert_equals(Object.keys(detected_pointertypes), ["pen"]);
+            }, "PointerEvent constructor"));
+        });
+    </script>
+    <div id="complete-notice">
+    <p>The following pointer types were detected: <span id="pointertype-log"></span>.</p>
+    </div>
+    <div id="log"></div>
+    </body>
+</html>

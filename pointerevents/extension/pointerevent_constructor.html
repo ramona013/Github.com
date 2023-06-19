@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+    <head>
+        <title>PointerEvent: Constructor test</title>
+        <meta name="viewport" content="width=device-width">
+        <link rel="stylesheet" type="text/css" href="pointerevent_styles.css">
+        <script src="/resources/testharness.js"></script>
+        <script src="/resources/testharnessreport.js"></script>
+        <!-- Additional helper script for common checks across event types -->
+    </head>
+    <body>
+    <h1>PointerEvent: Dispatch custom event with coalesced events</h1>
+    <h4>Test Description: This test checks if PointerEvent constructor works properly with respect to the coalesced events.</h4>
+    <div id="target0"></div>
+    <script>
+        async_test(function() {
+            var target0 = document.getElementById("target0");
+            // set values for non-default constructor
+            on_event(target0, "pointermove", this.step_func(function(event) {
+                test(function() {
+                    assert_equals(event.getCoalescedEvents().length, 2);
+                }, "event.getCoalescedEvents().length");
+                test(function() {
+                    assert_equals(event.target, target0);
+                }, "event.target");
+                test(function() {
+                    assert_equals(event.currentTarget, target0);
+                }, "event.currentTarget");
+                test(function() {
+                    assert_equals(event.eventPhase, Event.AT_TARGET);
+                }, "event.eventPhase");
+                test(function() {
+                    assert_equals(event.clientX, 310);
+                }, "event.clientX");
+
+                for (var i = 0; i < 2; i++) {
+                    // these properties match the dispatched event
+                    ["pointerId", "pointerType", "isPrimary", "isTrusted", "target"].forEach(
+                        function(prop) {
+                            test(function() {
+                                var coalescedEvent = event.getCoalescedEvents()[i];
+                                assert_equals(coalescedEvent[prop], event[prop]);
+                            }, "getCoalescedEvents()[" + i + "]." + prop);
+                        });
+
+                    // these are always false
+                    ["cancelable", "bubbles"].forEach(
+                        function(prop) {
+                            test(function() {
+                                var coalescedEvent = event.getCoalescedEvents()[i];
+                                assert_equals(coalescedEvent[prop], false);
+                            }, "getCoalescedEvents()[" + i + "]." + prop);
+                        });
+
+                    // these follow the defaults
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.currentTarget, null);
+                    }, "getCoalescedEvents()[" + i + "].currentTarget");
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.eventPhase, Event.NONE);
+                    }, "getCoalescedEvents()[" + i + "].eventPhase");
+
+                    // CSSOM View stuff is computed accurately for coalesced events
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.offsetX, event.offsetX + (i==0?-10:0));
+                    }, "getCoalescedEvents()[" + i + "].offsetX");
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.offsetY, event.offsetY);
+                    }, "getCoalescedEvents()[" + i + "].offsetY");
+
+                    // FIXME: gsnedders doesn't see what guarantees this but
+                    // NavidZ had this above before
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.clientX, event.clientX + (i==0?-10:0));
+                    }, "getCoalescedEvents()[" + i + "].clientX");
+
+                    // we never have have (nested) coalesced events
+                    test(function() {
+                        var coalescedEvent = event.getCoalescedEvents()[i];
+                        assert_equals(coalescedEvent.getCoalescedEvents().length, 0);
+                    }, "getCoalescedEvents()[" + i + "].getCoalescedEvents().length");
+                }
+            }));
+            on_event(target0, "pointerout", this.step_func(function(event) {
+                test(function() {
+                    assert_equals(event.getCoalescedEvents().length, 0);
+                }, "default getCoalescedEvents().length");
+            }));
+
+            on_event(window, "load", this.step_func_done(function() {
+                assert_not_equals(window.PointerEvent, undefined);
+
+                var pointerEventInitDict =
+                {
+                  pointerId: 42,
+                  pointerType: "pen",
+                  isPrimary: true,
+                  clientX: 300
+                };
+
+                var p1 = new PointerEvent("pointermove", pointerEventInitDict);
+                pointerEventInitDict.clientX += 10;
+                var p2 = new PointerEvent("pointermove", pointerEventInitDict);
+                pointerEventInitDict.coalescedEvents = [p1, p2];
+                var event = new PointerEvent("pointermove", pointerEventInitDict);
+                target0.dispatchEvent(event);
+
+                var pointerEventDefault = new PointerEvent("pointerout");
+                target0.dispatchEvent(pointerEventDefault);
+            }, "PointerEvent constructor"));
+        });
+    </script>
+    <div id="complete-notice">
+    <p>The following pointer types were detected: <span id="pointertype-log"></span>.</p>
+    </div>
+    <div id="log"></div>
+    </body>
+</html>
