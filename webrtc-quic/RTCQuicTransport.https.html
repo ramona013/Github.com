@@ -1,0 +1,178 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>RTCQuicTransport.https.html</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="../webrtc/RTCIceTransport-extension-helper.js"></script>
+<script src="RTCQuicTransport-helper.js"></script>
+<script>
+'use strict';
+
+// These tests are based on the following specification:
+// https://w3c.github.io/webrtc-quic/
+
+// The following helper functions are called from
+// RTCIceTransport-extension-helper.js:
+//   makeIceTransport
+//   makeAndGatherTwoIceTransports
+
+// The following helper functions are called from RTCQuicTransport-helper.js:
+//   makeQuicTransport
+//   makeStandaloneQuicTransport
+//   makeAndStartTwoQuicTransports
+//   makeTwoConnectedQuicTransports
+
+test(t => {
+  const iceTransport = makeIceTransport(t);
+  const quicTransport = makeQuicTransport(t, iceTransport);
+  assert_equals(quicTransport.transport, iceTransport,
+      'Expect transport to be the same as the one passed in the constructor.');
+  assert_equals(quicTransport.state, 'new', `Expect state to be 'new'.`);
+}, 'RTCQuicTransport initial properties are set.');
+
+test(t => {
+  const iceTransport = makeIceTransport(t);
+  iceTransport.stop();
+  assert_throws('InvalidStateError',
+      () => makeQuicTransport(t, iceTransport));
+}, 'RTCQuicTransport constructor throws if passed a closed RTCIceTransport.');
+
+test(t => {
+  const iceTransport = makeIceTransport(t);
+  const firstQuicTransport =
+      makeQuicTransport(t, iceTransport);
+  assert_throws('InvalidStateError',
+      () => makeQuicTransport(t, iceTransport));
+}, 'RTCQuicTransport constructor throws if passed an RTCIceTransport that ' +
+    'already has an active RTCQuicTransport.');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.stop();
+  assert_equals(quicTransport.state, 'closed');
+}, `stop() changes state to 'closed'.`);
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.transport.stop();
+  assert_equals(quicTransport.state, 'closed');
+}, `RTCIceTransport.stop() changes RTCQuicTransport.state to 'closed'.`);
+
+promise_test(async t => {
+  const [ localQuicTransport, remoteQuicTransport ] =
+      makeAndStartTwoQuicTransports(t);
+  const localWatcher = new EventWatcher(t, localQuicTransport, 'statechange');
+  const remoteWatcher = new EventWatcher(t, remoteQuicTransport, 'statechange');
+  await Promise.all([
+    localWatcher.wait_for('statechange').then(() => {
+      assert_equals(localQuicTransport.state, 'connected');
+    }),
+    remoteWatcher.wait_for('statechange').then(() => {
+      assert_equals(remoteQuicTransport.state, 'connected');
+    }),
+  ]);
+}, 'Two RTCQuicTransports connect to each other.');
+
+promise_test(async t => {
+  const [ localQuicTransport, remoteQuicTransport ] =
+      await makeTwoConnectedQuicTransports(t);
+  localQuicTransport.stop();
+  const remoteWatcher = new EventWatcher(t, remoteQuicTransport, 'statechange');
+  await remoteWatcher.wait_for('statechange');
+  assert_equals(remoteQuicTransport.state, 'closed');
+}, `stop() fires a statechange event to 'closed' on the remote transport`);
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.connect();
+  assert_equals(quicTransport.state, 'connecting');
+}, `connect() changes state to 'connecting'.`);
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.connect();
+  assert_throws('InvalidStateError',
+      () => quicTransport.connect());
+}, 'connect() throws if already called connect().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.listen(new Uint8Array([12345]));
+  assert_throws('InvalidStateError',
+      () => quicTransport.connect());
+}, 'connect() throws if already called listen().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.stop();
+  assert_throws('InvalidStateError',
+      () => quicTransport.connect());
+}, 'connect() throws after stop().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.transport.stop();
+  assert_throws('InvalidStateError',
+      () => quicTransport.connect());
+}, 'connect() throws if called after RTCIceTransport has stopped.');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.listen(new Uint8Array([12345]));
+  assert_equals(quicTransport.state, 'connecting');
+}, `listen() changes state to 'connecting'.`);
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.connect();
+  assert_throws('InvalidStateError',
+      () => quicTransport.listen(new Uint8Array([12345])));
+}, 'listen() throws if already called connect().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.listen(new Uint8Array([12345]));
+  assert_throws('InvalidStateError',
+      () => quicTransport.listen(new Uint8Array([12345])));
+}, 'listen() throws if already called listen().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.stop();
+  assert_throws('InvalidStateError',
+      () => quicTransport.listen(new Uint8Array([12345])));
+}, 'listen() throws after stop().');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  quicTransport.transport.stop();
+  assert_throws('InvalidStateError',
+      () => quicTransport.listen(new Uint8Array([12345])));
+}, 'listen() throws if called after RTCIceTransport has stopped.');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  const key = quicTransport.getKey();
+  assert_equals(key.byteLength, 16);
+}, 'RTCQuicTransport.getKey() attribute is 16 bytes.');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  const key = new Uint8Array();
+  assert_throws('NotSupportedError',
+      () => quicTransport.listen(key));
+}, 'listen() throws if given an empty key.');
+
+test(t => {
+  const quicTransport = makeStandaloneQuicTransport(t);
+  const key = quicTransport.getKey();
+  let update_key = new Uint8Array(key);
+  for (let i = 0; i < update_key.length; i++) {
+    update_key[i] = 0;
+  }
+  const new_key = quicTransport.getKey();
+  assert_not_equals(update_key, new Uint8Array(new_key));
+}, 'Cannot mutate key retrieved from getKey().');
+
+</script>
+
