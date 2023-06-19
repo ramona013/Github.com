@@ -1,0 +1,57 @@
+<!doctype html>
+<title>fieldset default style</title>
+<script src=/resources/testharness.js></script>
+<script src=/resources/testharnessreport.js></script>
+<link rel=stylesheet href=resources/fieldset-default-style.css>
+<style>
+#appearance-test, #ref { -webkit-appearance: fieldset; }
+</style>
+<fieldset id=test></fieldset>
+<div id=ref class=fieldset-default-style></div>
+<div id=appearance-test></div>
+<div id=appearance-ref></div>
+<script>
+  const testElm = document.querySelector('#test');
+  const refElm = document.querySelector('#ref');
+  const appearanceTestElm = document.querySelector('#appearance-test');
+  const appearanceRefElm = document.querySelector('#appearance-ref');
+  const props = ['display',
+                 'margin-top',
+                 'margin-right',
+                 'margin-bottom',
+                 'margin-left',
+                 'border-top-style',
+                 'border-right-style',
+                 'border-bottom-style',
+                 'border-left-style',
+                 'border-top-width',
+                 'border-right-width',
+                 'border-bottom-width',
+                 'border-left-width',
+                 'border-top-color',
+                 'border-right-color',
+                 'border-bottom-color',
+                 'border-left-color',
+                 'padding-top',
+                 'padding-right',
+                 'padding-bottom',
+                 'padding-left',
+                 'min-width',
+                 ];
+  const testStyle = getComputedStyle(testElm);
+  const refStyle = getComputedStyle(refElm);
+  const appearanceTestStyle = getComputedStyle(appearanceTestElm);
+  const appearanceRefStyle = getComputedStyle(appearanceRefElm);
+  props.forEach(prop => {
+    test(() => {
+      assert_equals(testStyle[prop], refStyle[prop]);
+    }, `${prop} for fieldset`);
+
+    test(() => {
+      assert_equals(appearanceTestStyle[prop], appearanceRefStyle[prop]);
+    }, `${prop} for div with -webkit-appearance: fieldset`);
+  });
+  test(() => {
+    assert_equals(testStyle['-webkit-appearance'], 'fieldset');
+  }, "-webkit-appearance for fieldset");
+</script>
