@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<meta name="timeout" content="long">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="resources/test-helper.js"></script>
+
+<script>
+// Fallbacks from external URLs (such as HTTPS URLs) are
+// blocked by ongoing spec discussions, for example
+// https://github.com/WICG/import-maps/issues/76.
+// https://crbug.com/928435
+//
+// This test, as well as Chromium's implementation, rejects broader range of
+// fallbacks (not only those from HTTPS), to avoid potential spec and
+// interoperability issues.
+// The only allowed fallback pattern is fallbacks from bare specifiers with
+// two elements, which are listed in fallback.sub.tentative.html.
+const importMap = `
+{
+  "imports": {
+    "bare": "./resources/log.sub.js?name=bare",
+
+    "./resources/log.sub.js?name=http-to-builtin": [
+      "./resources/log.sub.js?name=http-to-builtin",
+      "@std/blank"
+    ],
+
+    "./resources/log.sub.js?name=fallback-to-different-url-1": [
+      "@std/blank",
+      "./resources/log.sub.js?name=something-different"
+    ],
+    "./resources/log.sub.js?name=fallback-to-different-url-2": [
+      "@std/none",
+      "./resources/log.sub.js?name=something-different2"
+    ],
+    "./resources/log.sub.js?name=fallback-to-different-origin-1": [
+      "@std/blank",
+      "https://{{domains[www1]}}:{{ports[https][0]}}/import-maps/resources/log.sub.js?name=fallback-to-different-origin-1"
+    ],
+    "./resources/log.sub.js?name=fallback-to-different-origin-2": [
+      "@std/none",
+      "https://{{domains[www1]}}:{{ports[https][0]}}/import-maps/resources/log.sub.js?name=fallback-to-different-origin-2"
+    ],
+
+    "./resources/log.sub.js?name=more-than-two-values-1": [
+      "@std/none",
+      "@std/blank",
+      "./resources/log.sub.js?name=more-than-two-values-1"
+    ],
+    "./resources/log.sub.js?name=more-than-two-values-2": [
+      "@std/none",
+      "./resources/log.sub.js?name=more-than-two-values-2",
+      "@std/blank"
+    ],
+    "./resources/log.sub.js?name=fallback-from-http": [
+      "./resources/log.sub.js?name=non-built-in",
+      "./resources/log.sub.js?name=fallback-from-http"
+    ],
+    "./resources/log.sub.js?name=fallback-from-data-1": [
+      "data:text/plain,",
+      "./resources/log.sub.js?name=fallback-from-http"
+    ],
+    "./resources/log.sub.js?name=fallback-from-data-2": [
+      "data:text/javascript,log.push('dataURL')",
+      "./resources/log.sub.js?name=fallback-from-http"
+    ]
+  }
+}
+`;
+const tests = {};
+for (const key in JSON.parse(importMap).imports) {
+  if (key === "bare") {
+    continue;
+  }
+  tests[key] =
+    [Result.URL, Result.URL, Result.PARSE_ERROR, Result.PARSE_ERROR];
+}
+doTests(importMap, null, tests);
+</script>
+<body>
