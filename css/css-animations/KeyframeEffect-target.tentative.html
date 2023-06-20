@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>CSSAnimation.effect.target</title>
+<!-- TODO: Add a more specific link for this once it is specified. -->
+<link rel="help" href="https://drafts.csswg.org/css-animations-2/">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="support/testcommon.js"></script>
+<style>
+@keyframes anim { }
+::before {
+  content: ''
+}
+::after {
+  content: ''
+}
+</style>
+<div id="log"></div>
+<script>
+'use strict';
+
+test(t => {
+  const div = addDiv(t);
+  div.style.animation = 'anim 100s';
+  const animation = div.getAnimations()[0];
+  assert_equals(animation.effect.target, div,
+    'Animation.target is the animatable div');
+}, 'Returned CSS animations have the correct effect target');
+
+test(t => {
+  addStyle(t, { '.after::after': 'animation: anim 100s;' });
+  const div = addDiv(t, { class: 'after' });
+  const animation = div.getAnimations({subtree: true})[0];
+  assert_equals(animation.effect.target, div,
+    'Animation.target is the target element');
+  assert_equals(animation.effect.pseudoElement, '::after',
+    'Animation.pseudoElement is the target pseudo-selector');
+}, 'effect.target and effect.pseudoElement have the correct effect target on a pseudo-element animation');
+
+</script>

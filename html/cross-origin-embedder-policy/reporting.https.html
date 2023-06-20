@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<html>
+<body>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/common/utils.js"></script>
+<script src="/common/get-host-info.sub.js"></script>
+<script>
+const HOST = get_host_info();
+const REMOTE_ORIGIN = HOST.REMOTE_ORIGIN;
+const BASE = new URL("resources", location).pathname
+
+function wait(ms) {
+  return new Promise(resolve => step_timeout(resolve, ms));
+}
+
+async function pollReports(endpoint, reports) {
+  while (true) {
+    await wait(200);
+    const res = await fetch(`resources/report.py?endpoint=${endpoint}`, {cache: 'no-store'});
+    if (res.status !== 200) {
+      continue;
+    }
+    for (const report of await res.json()) {
+      reports.push(report);
+    }
+  }
+}
+
+let reports = []
+let reportsForReportOnly = []
+pollReports('endpoint', reports);
+pollReports('report-only-endpoint', reportsForReportOnly);
+
+function checkCorpReportExistence(reports, blockedUrl, contextUrl) {
+  blockedUrl = new URL(blockedUrl, location).href;
+  contextUrl = new URL(contextUrl, location).href;
+  for (const report of reports) {
+    if (report.type !== 'coep' || report.url !== contextUrl ||
+        report.body.type !== 'corp') {
+      continue;
+    }
+    if (report.body['blocked-url'] === blockedUrl) {
+      return;
+    }
+  }
+  assert_unreached(`A report whose blocked-url is ${blockedUrl} and url is ${contextUrl} is not found.`);
+}
+
+function checkReportNonExistence(reports, blockedUrl, contextUrl) {
+  blockedUrl = new URL(blockedUrl, location).href;
+  contextUrl = new URL(contextUrl, location).href;
+  for (const report of reports) {
+    if (report.type !== 'coep' || report.url !== contextUrl) {
+      continue;
+    }
+    assert_not_equals(report.body['blocked-url'], blockedUrl);
+  }
+}
+
+async_test(async (t) => {
+  try {
+    const iframe = document.createElement('iframe');
+    t.add_cleanup(() => iframe.remove());
+
+    iframe.src = `resources/reporting-empty-frame.html`
+    document.body.appendChild(iframe);
+    await new Promise(resolve => {
+      iframe.addEventListener('load', resolve, {once: true});
+    });
+
+    function fetchInIframe(url) {
+      const init = { mode: 'no-cors', cache: 'no-store' };
+      iframe.contentWindow.fetch(url, init).catch(() => {});
+    }
+
+    const suffix = 'subresource-corp';
+    const sameOriginUrl = `/common/text-plain.txt?${suffix}`;
+    const blockedByPureCorp = `${REMOTE_ORIGIN}${BASE}/nothing-same-origin-corp.txt?${suffix}`;
+    const blockedDueToCoep = `${REMOTE_ORIGIN}/common/text-plain.txt?abc&${suffix}`;
+    const dest = `${REMOTE_ORIGIN}/common/text-plain.txt?xyz&${suffix}`;
+    const redirect = `/common/redirect.py?location=${encodeURIComponent(dest)}&${suffix}`;
+
+    fetchInIframe(sameOriginUrl);
+    fetchInIframe(blockedByPureCorp);
+    fetchInIframe(blockedDueToCoep);
+    fetchInIframe(redirect);
+
+    await new Promise(resolve => t.step_timeout(resolve, 3000));
+
+    checkReportNonExistence(reports, sameOriginUrl, iframe.src);
+    checkReportNonExistence(reports, blockedByPureCorp, iframe.src);
+    checkCorpReportExistence(reports, blockedDueToCoep, iframe.src);
+    checkCorpReportExistence(reports, redirect, iframe.src);
+    checkReportNonExistence(reports, dest, iframe.src);
+
+    t.done();
+  } catch (e) {
+    t.step(() => { throw e });
+  }
+}, 'subresource CORP');
+
+async_test(async (t) => {
+  try {
+    const iframe = document.createElement('iframe');
+    t.add_cleanup(() => iframe.remove());
+
+    iframe.src = `resources/reporting-empty-frame.html`
+    document.body.appendChild(iframe);
+    await new Promise(resolve => {
+      iframe.addEventListener('load', resolve, {once: true});
+    });
+
+    const w = iframe.contentWindow;
+
+    function attachFrame(url) {
+      const frame = w.document.createElement('iframe');
+      frame.src = url;
+      w.document.body.appendChild(frame);
+    }
+
+    const suffix = 'navigation-corp';
+    const sameOrigin = `/common/blank.html?${suffix}`;
+    const blockedDueToCoep = `${REMOTE_ORIGIN}/common/blank.html?abc&${suffix}`;
+    const dest = `${REMOTE_ORIGIN}/common/blank.html?xyz&${suffix}`;
+    const redirect = `/common/redirect.py?location=${encodeURIComponent(dest)}&${suffix}`;
+
+    attachFrame(sameOrigin);
+    attachFrame(blockedDueToCoep);
+    attachFrame(redirect);
+
+    await new Promise(resolve => t.step_timeout(resolve, 3000));
+
+    checkReportNonExistence(reports, sameOrigin, iframe.src);
+    checkCorpReportExistence(reports, blockedDueToCoep, iframe.src);
+    checkCorpReportExistence(reports, redirect, iframe.src);
+    checkReportNonExistence(reports, dest, iframe.src);
+
+    t.done();
+  } catch (e) {
+    t.step(() => { throw e });
+  }
+}, 'navigation CORP');
+
+</script>
