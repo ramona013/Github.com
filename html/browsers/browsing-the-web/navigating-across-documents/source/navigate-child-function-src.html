@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>Set src from a function called from a parent</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<div id=log></div>
+<iframe src="resources/set-parent-src.html"></iframe>
+<script>
+async_test(t => {
+  self.onload = t.step_func(() => {
+    const fr = document.querySelector("iframe");
+    fr.contentWindow.go();
+    fr.onload = t.step_func_done(() => {
+      assert_equals(fr.contentDocument.URL, new URL("resources/dummy.html", location).href);
+      assert_equals(fr.contentDocument.referrer, document.URL);
+    });
+  });
+});
+</script>

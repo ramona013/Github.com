@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>Set the src attribute to about:blank and check referrer</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<div id=log></div>
+<iframe></iframe>
+<script>
+async_test(t => {
+  self.onload = t.step_func(() => {
+    const fr = document.querySelector("iframe");
+    fr.src = "about:blank";
+    fr.onload = t.step_func_done(() => {
+      assert_equals(fr.contentDocument.referrer, document.URL);
+    });
+  });
+});
+</script>
