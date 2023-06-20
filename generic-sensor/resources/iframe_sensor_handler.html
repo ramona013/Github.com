@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>iframe sensor tester</title>
+<script src="/generic-sensor/resources/generic-sensor-helpers.js"></script>
+<script>
+  let mockBackend = null;
+  let sensor = null;
+  let sensorType = null;
+
+  function postReply(event, reply) {
+    event.source.postMessage({ command: event.data.command, result: reply }, '*');
+  }
+
+  window.onmessage = async (e) => {
+    if (e.data.command === 'create_sensor') {
+      if (sensor) {
+        postReply(e, 'success');
+        return;
+      }
+
+      try {
+        mockBackend = await initialize_generic_sensor_tests();
+        sensor = new self[e.data.type]();
+        sensorType = e.data.type;
+
+        postReply(e, 'success');
+      } catch (error) {
+        postReply(e, error);
+      }
+    } else if (e.data.command === 'start_sensor') {
+      if (!sensor) {
+        postReply(e, '"create_sensor" must be called first');
+        return;
+      }
+
+      try {
+        sensor.addEventListener('reading', () => {
+          postReply(e, 'success');
+        }, { once: true });
+        sensor.start();
+      } catch (error) {
+        postReply(e, error);
+      }
+    } else if (e.data.command === 'is_sensor_suspended') {
+      if (!mockBackend) {
+        postReply(e, '"create_sensor" must be called first');
+        return;
+      }
+
+      try {
+        const mockPlatformSensor = await mockBackend.getSensorProvider().getCreatedSensor(sensorType);
+        postReply(e, !mockPlatformSensor.isReadingData());
+      } catch (error) {
+        postReply(e, error);
+      }
+    } else if (e.data.command === 'reset_sensor_backend') {
+      if (sensor) {
+        sensor.stop();
+        await mockBackend.reset();
+
+        sensor = null;
+        mockBackend = null;
+      }
+
+      postReply(e, 'success');
+    }
+  }
+</script>
